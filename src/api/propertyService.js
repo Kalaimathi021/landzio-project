@@ -1,5 +1,5 @@
 import { db } from "../firebase/firebaseConfig";
-import { collection, getDocs, getDoc, doc, addDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, addDoc, deleteDoc, updateDoc } from "firebase/firestore";
 
 const propertyCollection = collection(db, "properties");
 
@@ -26,22 +26,24 @@ export const getPropertyById = async (id) => {
 
 // Add property
 export const addProperty = async (property) => {
+    const docRef = await addDoc(propertyCollection, property);
+    return { id: docRef.id, ...property };
+};
+
+// 🔥 UPDATE PROPERTY
+export const updateProperty = async (id, updatedData) => {
     try {
-        const docRef = await addDoc(propertyCollection, property);
-        return { id: docRef.id, ...property };
+        const docRef = doc(db, "properties", id);
+        await updateDoc(docRef, updatedData);
+        return true;
     } catch (error) {
-        console.error("Error adding property:", error);
+        console.error("Update error:", error);
         throw error;
     }
 };
 
 // Delete property
 export const deleteProperty = async (id) => {
-    try {
-        await deleteDoc(doc(db, "properties", id));
-        return true;
-    } catch (error) {
-        console.error("Delete error:", error);
-        throw error;
-    }
+    await deleteDoc(doc(db, "properties", id));
+    return true;
 };

@@ -1,10 +1,16 @@
-import { addProperty } from '../api/propertyService';
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MapPin, Grid, DollarSign, Home, BedDouble, Bath, Save } from 'lucide-react';
+import { addProperty, getPropertyById, updateProperty } from '../api/propertyService';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Save } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const AddProperty = () => {
     const navigate = useNavigate();
+    const { id } = useParams(); // 🔥 for edit mode
+    const { user } = useAuth();
+
+    const isEditMode = Boolean(id);
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
 
@@ -20,6 +26,35 @@ const AddProperty = () => {
         imageUrl: ''
     });
 
+    // 🔥 LOAD EXISTING DATA (EDIT MODE)
+    useEffect(() => {
+        const fetchProperty = async () => {
+            if (!isEditMode) return;
+
+            try {
+                const data = await getPropertyById(id);
+
+                if (data) {
+                    setFormData({
+                        title: data.title || '',
+                        type: data.type || 'House',
+                        price: data.price || '',
+                        size: data.size || '',
+                        location: data.location || '',
+                        beds: data.beds || '',
+                        baths: data.baths || '',
+                        description: data.description || '',
+                        imageUrl: data.image || ''
+                    });
+                }
+            } catch (error) {
+                console.error("Error loading property:", error);
+            }
+        };
+
+        fetchProperty();
+    }, [id, isEditMode]);
+
     const handleChange = (e) => {
         setFormData({
             ...formData,
@@ -33,15 +68,26 @@ const AddProperty = () => {
 
         try {
             const propertyData = {
-                ...formData,
-                price: Number(formData.price),
-                beds: Number(formData.beds) || 0,
-                baths: Number(formData.baths) || 0,
-                image: formData.imageUrl || "https://via.placeholder.com/400x300?text=No+Image",
-                createdAt: new Date()
-            };
+            ...formData,
+            price: Number(formData.price),
+            beds: Number(formData.beds) || 0,
+            baths: Number(formData.baths) || 0,
+            image: formData.imageUrl || "https://via.placeholder.com/400x300?text=No+Image",
+            updatedAt: new Date(),
+            userId: user?.uid || user?.id || "anonymous",
 
-            await addProperty(propertyData);
+            // ✅ ADD THIS LINE
+            status: isEditMode ? formData.status || "pending" : "pending"
+        };
+
+            if (isEditMode) {
+                // 🔥 UPDATE
+                await updateProperty(id, propertyData);
+            } else {
+                // 🔥 CREATE
+                propertyData.createdAt = new Date();
+                await addProperty(propertyData);
+            }
 
             setIsSubmitting(false);
             setSuccess(true);
@@ -63,8 +109,12 @@ const AddProperty = () => {
                 <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-6">
                     <Save className="w-10 h-10 text-emerald-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">Property Published!</h2>
-                <p className="text-slate-500 text-center">Your property listing is now live.</p>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                    {isEditMode ? "Property Updated!" : "Submitted for Approval!"}
+                </h2>
+                <p className="text-slate-500 text-center">
+                    {isEditMode ? "Changes saved successfully." : "Your property is under review by admin."}
+                </p>
             </div>
         );
     }
@@ -72,15 +122,19 @@ const AddProperty = () => {
     return (
         <div className="flex flex-col min-h-full bg-slate-50 pb-8">
             <div className="bg-white px-6 py-6 pt-12 rounded-b-[2rem] shadow-sm mb-6">
-                <h1 className="text-2xl font-bold text-slate-900">Add Property</h1>
-                <p className="text-slate-500 text-sm mt-1">List a new property</p>
+                <h1 className="text-2xl font-bold text-slate-900">
+                    {isEditMode ? "Edit Property" : "Add Property"}
+                </h1>
+                <p className="text-slate-500 text-sm mt-1">
+                    {isEditMode ? "Update your property" : "List a new property"}
+                </p>
             </div>
 
             <div className="px-4">
                 <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-5 shadow-sm space-y-6">
 
                     <div className="space-y-4">
-                        <div className="input-group">
+                        <div>
                             <label>Property Title</label>
                             <input type="text" name="title" value={formData.title} onChange={handleChange} required />
                         </div>
@@ -130,7 +184,9 @@ const AddProperty = () => {
                     </div>
 
                     <button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? 'Publishing...' : 'Publish Property'}
+                        {isSubmitting
+                            ? (isEditMode ? 'Updating...' : 'Publishing...')
+                            : (isEditMode ? 'Update Property' : 'Publish Property')}
                     </button>
 
                 </form>

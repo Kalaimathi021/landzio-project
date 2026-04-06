@@ -22,12 +22,19 @@ const Home = () => {
     const [activeCategory, setActiveCategory] = useState('All');
     const [properties, setProperties] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [viewMode, setViewMode] = useState('all');
 
+    // ✅ FETCH ONLY APPROVED PROPERTIES
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const data = await getProperties();
-                setProperties(data || []);
+
+                const approved = (data || []).filter(
+                    (p) => p.status === "approved"
+                );
+
+                setProperties(approved);
             } catch (error) {
                 console.error("Error fetching properties:", error);
                 setProperties([]);
@@ -36,19 +43,15 @@ const Home = () => {
         fetchData();
     }, []);
 
-    // ✅ DELETE HANDLER
     const handleDelete = async (id) => {
         try {
             await deleteProperty(id);
-
-            // update UI instantly
             setProperties(prev => prev.filter(p => p.id !== id));
         } catch (error) {
             alert("Delete failed");
         }
     };
 
-    // ✅ SAFE FILTERING
     const filteredProperties = properties.filter(p => {
         const title = p?.title || "";
         const location = p?.location || "";
@@ -60,7 +63,14 @@ const Home = () => {
             title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             location.toLowerCase().includes(searchTerm.toLowerCase());
 
-        return matchesCategory && matchesSearch;
+        let matchesUser = true;
+
+        if (viewMode === "mine") {
+            matchesUser =
+                p?.userId && user?.id && p.userId === user.id;
+        }
+
+        return matchesCategory && matchesSearch && matchesUser;
     });
 
     return (
@@ -100,6 +110,31 @@ const Home = () => {
             {/* Content */}
             <div className="flex-1 px-4 py-6 bg-slate-50">
 
+                {/* VIEW TOGGLE */}
+                <div className="flex gap-3 mb-6">
+                    <button
+                        onClick={() => setViewMode("all")}
+                        className={`px-4 py-2 rounded-xl ${
+                            viewMode === "all"
+                                ? "bg-indigo-600 text-white"
+                                : "bg-white text-gray-600"
+                        }`}
+                    >
+                        All Properties
+                    </button>
+
+                    <button
+                        onClick={() => setViewMode("mine")}
+                        className={`px-4 py-2 rounded-xl ${
+                            viewMode === "mine"
+                                ? "bg-indigo-600 text-white"
+                                : "bg-white text-gray-600"
+                        }`}
+                    >
+                        My Properties
+                    </button>
+                </div>
+
                 {/* Categories */}
                 <div className="mb-8">
                     <h2 className="text-lg font-bold mb-4">Categories</h2>
@@ -133,53 +168,65 @@ const Home = () => {
 
                     {filteredProperties.length > 0 ? (
                         <div className="space-y-4">
-                            {filteredProperties.map((property) => (
-                                <div
-                                    key={property.id}
-                                    className="bg-white rounded-xl shadow cursor-pointer"
-                                    onClick={() => navigate(`/property/${property.id}`)}
-                                >
-                                    {/* Image */}
-                                    <div className="h-48 w-full">
-                                        <img
-                                            src={
-                                                property?.image ||
-                                                "https://via.placeholder.com/400x300?text=No+Image"
-                                            }
-                                            alt={property?.title || "Property"}
-                                            className="w-full h-full object-cover rounded-t-xl"
-                                        />
-                                    </div>
+                            {filteredProperties.map((property) => {
+                                const isOwner =
+                                    property?.userId &&
+                                    user?.id &&
+                                    property.userId === user.id;
 
-                                    {/* Details */}
-                                    <div className="p-4">
-                                        <h3 className="font-bold text-lg">
-                                            {property?.title || "No Title"}
-                                        </h3>
-
-                                        <div className="flex items-center text-sm text-gray-500">
-                                            <MapPin className="w-4 h-4 mr-1" />
-                                            {property?.location || "No Location"}
+                                return (
+                                    <div
+                                        key={property.id}
+                                        className="bg-white rounded-xl shadow cursor-pointer"
+                                        onClick={() => navigate(`/property/${property.id}`)}
+                                    >
+                                        <div className="h-48 w-full">
+                                            <img
+                                                src={property?.image || "https://via.placeholder.com/400x300"}
+                                                alt={property?.title}
+                                                className="w-full h-full object-cover rounded-t-xl"
+                                            />
                                         </div>
 
-                                        <p className="mt-2 font-semibold text-indigo-600">
-                                            {formatCurrency(property?.price || 0)}
-                                        </p>
+                                        <div className="p-4">
+                                            <h3 className="font-bold text-lg">{property?.title}</h3>
 
-                                        {/* 🔥 DELETE BUTTON */}
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDelete(property.id);
-                                            }}
-                                            className="mt-2 text-red-500 text-sm"
-                                        >
-                                            Delete
-                                        </button>
+                                            <div className="flex items-center text-sm text-gray-500">
+                                                <MapPin className="w-4 h-4 mr-1" />
+                                                {property?.location}
+                                            </div>
 
+                                            <p className="mt-2 font-semibold text-indigo-600">
+                                                {formatCurrency(property?.price || 0)}
+                                            </p>
+
+                                            {isOwner && (
+                                                <div className="flex gap-4 mt-3">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            navigate(`/edit/${property.id}`);
+                                                        }}
+                                                        className="text-blue-600 text-sm"
+                                                    >
+                                                        Edit
+                                                    </button>
+
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDelete(property.id);
+                                                        }}
+                                                        className="text-red-500 text-sm"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className="text-center py-10 bg-white rounded-xl">

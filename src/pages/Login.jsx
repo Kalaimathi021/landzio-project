@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Home, Mail, Lock, LogIn } from 'lucide-react';
+import { Home } from 'lucide-react';
 
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [phone, setPhone] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const { login } = useAuth();
+    const { login, sendOTP } = useAuth(); // ✅ only once
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
@@ -23,17 +24,37 @@ const Login = () => {
 
         setIsLoading(true);
 
-        // Simulate network delay
-        setTimeout(() => {
-            const success = login(email, password);
-            setIsLoading(false);
+        const res = await login(email, password);
 
-            if (success) {
-                navigate('/');
-            } else {
-                setError('Invalid email or password');
-            }
-        }, 1000);
+        setIsLoading(false);
+
+        if (res.success) {
+            navigate('/');
+        } else {
+            setError("Invalid email or password");
+        }
+    };
+
+    // ✅ REAL OTP FUNCTION
+    const handleSendOTP = async () => {
+        setError('');
+
+        if (!phone) {
+            setError("Enter phone number");
+            return;
+        }
+
+        setIsLoading(true);
+
+        const res = await sendOTP(phone);
+
+        setIsLoading(false);
+
+        if (res.success) {
+            alert("OTP sent successfully");
+        } else {
+            setError(res.message);
+        }
     };
 
     return (
@@ -55,57 +76,61 @@ const Login = () => {
                     </div>
                 )}
 
+                {/* EMAIL LOGIN */}
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="input-group">
-                        <label className="input-label">Email Address</label>
-                        <div className="input-icon-wrapper">
-                            <Mail className="icon w-5 h-5 left-3" />
-                            <input
-                                type="email"
-                                className="input-field pl-10"
-                                placeholder="you@example.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
-                        </div>
-                    </div>
 
-                    <div className="input-group">
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="input-label mb-0">Password</label>
-                            <a href="#" className="text-xs text-indigo-600 font-medium hover:text-indigo-700">Forgot Password?</a>
-                        </div>
-                        <div className="input-icon-wrapper">
-                            <Lock className="icon w-5 h-5 left-3" />
-                            <input
-                                type="password"
-                                className="input-field pl-10"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                        </div>
-                    </div>
+                    <input
+                        type="email"
+                        placeholder="Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full border p-2"
+                    />
+
+                    <input
+                        type="password"
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full border p-2"
+                    />
 
                     <button
                         type="submit"
-                        className="btn btn-primary w-full mt-6 py-3.5 flex justify-center items-center gap-2"
+                        className="bg-indigo-600 text-white w-full p-2 rounded"
                         disabled={isLoading}
                     >
-                        {isLoading ? (
-                            <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                        ) : (
-                            <>
-                                <LogIn className="w-5 h-5" />
-                                <span>Sign In</span>
-                            </>
-                        )}
+                        {isLoading ? "Loading..." : "Login"}
                     </button>
                 </form>
 
-                <p className="mt-8 text-center text-sm text-slate-500">
-                    Don't have an account?{' '}
-                    <button onClick={() => navigate('/signup')} className="text-indigo-600 font-semibold hover:text-indigo-700">
+                {/* PHONE LOGIN */}
+                <div className="mt-6">
+                    <p className="text-center text-sm text-gray-500 mb-2">OR</p>
+
+                    <input
+                        type="tel"
+                        placeholder="Enter phone (+91XXXXXXXXXX)"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="w-full border p-2 mb-2"
+                    />
+
+                    <button
+                        onClick={handleSendOTP}
+                        className="bg-green-600 text-white w-full p-2 rounded"
+                        disabled={isLoading}
+                    >
+                        {isLoading ? "Sending..." : "Send OTP"}
+                    </button>
+                </div>
+
+                {/* reCAPTCHA */}
+                <div id="recaptcha-container" className="mt-4"></div>
+
+                <p className="mt-6 text-center text-sm">
+                    Don’t have an account?{' '}
+                    <button onClick={() => navigate('/signup')} className="text-indigo-600">
                         Sign Up
                     </button>
                 </p>
